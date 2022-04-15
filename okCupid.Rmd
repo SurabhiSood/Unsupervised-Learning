@@ -1,0 +1,73 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+library(cluster)  
+library(factoextra) 
+library(gridExtra)
+library(NbClust)
+library(dendextend)
+```
+
+```{r}
+ok_cupid <- read.csv('okcupid_profiles.csv')
+```
+
+```{r}
+# removing essay columns
+# dropping columns ethnicity and speaks
+# dropping location and sign
+
+ok_cupid <- ok_cupid %>%
+  select(-last_online,-essay0,-essay1,-essay2,-essay3,-essay4,-essay5,-essay6,-essay7,-essay8,-essay9,
+         -ethnicity,-speaks,-location,-sign)
+```
+
+
+```{r}
+# exploring categorical columns
+
+names<-names(ok_cupid)
+classes<-sapply(ok_cupid,class)
+
+for(name in names[classes == 'character'])
+{
+    print(unique(ok_cupid[,name])) # subset with [] not $
+}
+```
+
+```{r}
+
+#continous variables
+ggplot(melt(ok_cupid),aes(x=value)) + 
+  geom_histogram() + 
+  facet_wrap(~variable)
+
+```
+
+
+```{r}
+# dummy coding and scaling
+
+library(caret)
+
+dummy <- dummyVars(" ~ .", data=ok_cupid)
+ok_cupid_dummy <- data.frame(predict(dummy, newdata = ok_cupid)) 
+```
+
+```{r}
+ok_cupid_scale <- scale(ok_cupid_dummy)
+```
+
+```{r}
+# silhouette graph to find the optimal 'k'-
+set.seed(12964)
+while (!is.null(dev.list()))  dev.off() #sometimes r will throw an error to display the plot
+fviz_nbclust(ok_cupid_scale, kmeans, method = "silhouette",k.max = 9)
+```
+

@@ -1,0 +1,133 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+#install and load package arules
+library(arules)
+library(arulesViz)
+library(tidyverse)
+library(readxl)
+library(knitr)
+library(ggplot2)
+library(lubridate)
+library(plyr)
+library(dplyr)
+```
+
+```{r}
+# reading the data set
+data.retail <- readxl::read_xlsx('Online Retail.xlsx')
+```
+
+```{r}
+# returns rows that are complete 
+data.retail <- data.retail[complete.cases(data.retail), ]
+```
+
+```{r}
+#Data Pre-processing
+data.retail$Description <- as.factor(data.retail$Description)
+data.retail$Country <- as.factor(data.retail$Country)
+data.retail$InvoiceNo <- as.numeric(as.character(data.retail$InvoiceNo))
+data.retail$InvoiceDate <- as.Date(data.retail$InvoiceDate)
+
+```
+```{r}
+#removing rows introduced by coercion
+data.retail <- data.retail[complete.cases(data.retail), ]
+summary(data.retail)
+```
+
+
+```{r}
+# Creating a transactional data set
+# Create a unique identifier with InvoiceNo and InvoiceDate
+
+data.retail$id <- paste(data.retail$InvoiceNo, data.retail$CustomerID, sep = "-")
+trans.data <- as(split(data.retail$Description, data.retail$id), "transactions")
+#inspect(trans.data)
+```
+
+
+```{r}
+# absolute --> plot numeric frequencies of each item independently. 
+# relative --> plot how many times these items have appeared as compared to others.
+
+
+# Create an item frequency plot for the top 20 items
+if (!require("RColorBrewer")) {
+  # install color package of R
+install.packages("RColorBrewer")
+#include library RColorBrewer
+library(RColorBrewer)
+}
+
+itemFrequencyPlot(trans.data,
+                  topN=10,
+                  type="absolute",
+                  col=brewer.pal(8,'Pastel2'), 
+                  main="Absolute Item Frequency Plot")
+
+itemFrequencyPlot(trans.data,
+                  topN=10,
+                  type="relative",
+                  col=brewer.pal(8,'Pastel2'), 
+                  main="Relative Item Frequency Plot")
+```
+```{r}
+#Mining the rules 
+association.rules <- apriori(trans.data, 
+                             parameter = list(supp=0.001, conf=0.8,maxlen=10))
+
+summary(association.rules)
+
+rules.table <- inspect(association.rules[1:10])
+colnames(rules.table)[2] <- "direction"
+rules.table %>% 
+  arrange(desc(lift)) %>% 
+  select(lhs,rhs,lift,confidence,count)
+
+```
+```{r}
+
+#Removing redundant rules
+subset.rules <- which(colSums(is.subset(association.rules, association.rules)) > 1) 
+subset.association.rules <- association.rules[-subset.rules] 
+
+rules.table.new <- inspect(subset.association.rules[1:10])
+colnames(rules.table.new)[2] <- "direction"
+rules.table.new %>% 
+  arrange(desc(lift)) %>% 
+  select(lhs,rhs,lift,confidence,count)
+```
+
+```{r}
+# Rule for a particular product 
+
+pink.tea.cozy  = apriori(trans.data, 
+                         parameter = list(supp=0.001, conf=0.8),
+                         appearance = list(default="lhs",rhs="PINK KNITTED EGG COSY"))
+
+pink.tea.cozy.table <- inspect(pink.tea.cozy)
+colnames(pink.tea.cozy.table)[2] <- "direction"
+pink.tea.cozy.table %>% 
+  arrange(desc(lift)) %>% 
+  select(lhs,rhs,lift,confidence,count)
+
+```
+```{r}
+# Visualizing Association Rules
+plot(association.rules)
+plot(association.rules,method="two-key plot") #The order is the number of items in the rule
+
+```
+```{r}
+#Interactive graphs
+top10Rules <- head(association.rules, n = 10, by = "confidence")
+plot(top10Rules, method = "graph",  engine = "htmlwidget")
+```
+
+

@@ -1,0 +1,169 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+library(cluster)  
+library(factoextra) 
+library(gridExtra)
+library(NbClust)
+library(dendextend)
+library(BBmisc)
+library(dendextend)
+```
+
+```{r}
+#reading in the csv
+data <- read.csv('bank_marketing_dataset.csv')
+```
+
+```{r}
+summary(data)
+
+data <- data%>%
+  select(-month,)
+
+# Look for missing values - impute them
+# Look at categorical data - One hot encode them
+# Look for heavy skewness/outliers in the continuous data - standardize the dataset
+```
+
+```{r}
+# exploring categorical columns
+
+names<-names(data)
+classes<-sapply(data,class)
+
+for(name in names[classes == 'character'])
+{
+    print(unique(data[,name])) # subset with [] not $
+}
+```
+
+```{r}
+# One hot encoding of categorical variables
+library(caret)
+dummy <- dummyVars(" ~ .", data=data)
+data_dummy <- data.frame(predict(dummy, newdata = data)) 
+```
+
+```{r}
+# exploring the continuous variables -
+
+ggplot(melt(data),aes(x=value)) + 
+  geom_histogram() + 
+  facet_wrap(~variable)
+```
+
+
+```{r}
+#scale the data frame using either of the two methodologies
+data.scale <- scale(data_dummy) #distribution of feature values has mean 0 and a standard deviation of 1
+data.normalise <- normalize(data_dummy) #standardizing the entire scale of all the feature values between [0,1] 
+
+```
+
+```{r}
+# methodologies to find optimal number of clusters - 
+
+# silhouette graph-
+set.seed(12964)
+while (!is.null(dev.list()))  
+dev.off() #sometimes r will throw an error to display the plot
+fviz_nbclust(data.scale, kmeans, method = "silhouette",k.max = 9)
+
+# elbow/wss graph to find the k-
+# set.seed(12964)
+# while (!is.null(dev.list()))  dev.off() #sometimes r will throw an error to display the plot
+# fviz_nbclust(data.scale, kmeans, method = "wss",k.max = 9)
+# 
+# #gap statistic
+# set.seed(123)
+# gap_stat = clusGap(data.scale, FUN = kmeans, nstart = 25, K.max = 9, B = 50) 
+# while (!is.null(dev.list()))  dev.off() #sometimes r will throw an error to display the plot
+# fviz_gap_stat(gap_stat)
+
+```
+
+```{r}
+# Using the SSE methodology used for defining the number of clusters (k ) and the business context we can define any number of clusters between 5 to 8. 
+
+# Clustering from elbow graph 
+cluster_wss <- kmeans(data.scale, centers = 5 , nstart = 25)
+
+#plotting the clusters
+fviz_cluster(cluster_wss, data = data.scale)
+```
+
+
+```{r}
+
+profile.kmeans <- cbind(data,cluster_wss$cluster) 
+all.k <- profile.kmeans %>% 
+  group_by(cluster_wss$cluster) %>%
+  summarise(mean.Channel=mean(Channel),
+            mean.Region=mean(Region),
+            mean.Fresh=mean(Fresh),
+            mean.Milk=mean(Milk),
+            mean.Grocery=mean(Grocery),
+            mean.Frozen=mean(Frozen),
+            mean.Detergents_Paper=mean(Detergents_Paper),
+            mean.Delicassen=mean(Delicassen))
+
+          
+```
+
+```{r}
+
+# Cluster 1 - Frozen, Delicatessen # busy bees
+# Cluster 2 - Fresh # Health conscious 
+# Cluster 3 - Fresh, Milk, Grocery, Detergents_Paper # Family Shoppe
+# Cluster 4 - Grocery # Non-Food Shoppers
+# Cluster 5 - Fresh # similar to cluster 2
+
+```
+
+```{r}
+# Hierarchical Clustering
+# Euclidean Method 
+
+dist_mat <- dist(data.scale, method = 'euclidean') # on scaled data set
+
+# Try all kinds of linkage methods and later decide on which one performed better. 
+hclust_avg <- hclust(dist_mat, method = 'average')
+plot(hclust_avg)
+```
+
+```{r}
+# using k=5 for stopping the dendogram 
+cut_avg <- cutree(hclust_avg, k=5)
+
+#visualizing the clusters
+avg_dend_obj <- as.dendrogram(hclust_avg)
+avg_col_dend <- color_branches(avg_dend_obj,k = 5)
+plot(avg_col_dend)
+
+```
+
+```{r}
+
+seeds_df_cl <- mutate(data, cluster = cut_avg)
+count(seeds_df_cl,cluster)
+
+```
+
+
+```{r}
+# Next step - snippets
+# this is the snippet and why
+
+# Sam- 
+# 1. scaling the dataset - methods for standardization
+# 2. 
+```
+

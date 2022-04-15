@@ -1,0 +1,107 @@
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(reshape2)
+library(cluster)  
+library(factoextra) 
+library(gridExtra)
+library(NbClust)
+library(dendextend)
+```
+
+```{r}
+#reading in the csv
+data <- read.csv('Live.csv')
+```
+
+```{r}
+# data Pre-processing -
+# 1. Missing data needs to be imputed/dropped
+# 2. Categorical Data - dummy coding
+# 3. Continuous Data - needs to be transformed in case of skewness/outliers
+
+summary(data)
+
+```
+
+```{r}
+# dropping columns because of missing values - Column1, Column2, Column3, Column4
+
+data <- data%>%
+  select(-Column1,-Column2,-Column3,-Column4)
+```
+
+```{r}
+# exploring the three categorical variables -
+
+length(unique(data$status_id)) #will drop it
+length(unique(data$status_type)) #dummy code 
+length(unique(data$status_published)) #will drop it
+```
+
+```{r}
+#drop status_id,status_published
+data <- data %>%
+  select(-status_id,-status_published)
+
+#dummy coding with caret package
+library(caret)
+
+dummy <- dummyVars(" ~ .", data=data)
+newdata <- data.frame(predict(dummy, newdata = data)) 
+
+```
+
+
+```{r}
+# exploring the continuous variables -
+
+ggplot(melt(newdata),aes(x=value)) + 
+  geom_histogram() + 
+  facet_wrap(~variable)
+```
+```{r}
+#scaling the newdata data frame
+newdata.scale <- scale(newdata)
+
+```
+
+```{r}
+# elbow/wss graph to find the optimal 'k'-
+set.seed(12964)
+while (!is.null(dev.list()))  dev.off() #sometimes r will throw an error to display the plot
+fviz_nbclust(newdata.scale, kmeans, method = "wss",k.max = 9)
+
+```
+
+```{r}
+# Silhouette method
+set.seed(12964)
+fviz_nbclust(newdata.scale, kmeans, method = "silhouette",k.max = 9)
+```
+```{r}
+
+#Clustering 
+clus_elbow <- kmeans(newdata.scale, centers = 7, nstart = 25)
+
+#plotting the clusters
+fviz_cluster(clus_elbow, data = newdata.scale)
+```
+```{r}
+#Clustering 
+clus_sil <- kmeans(newdata.scale, centers = 8, nstart = 10)
+
+#plotting the clusters
+fviz_cluster(clus_sil, data = newdata.scale)
+```
+```{r}
+#Clustering 
+clus_4 <- kmeans(newdata.scale, centers = 4, nstart = 10)
+
+#plotting the clusters
+fviz_cluster(clus_4, data = newdata.scale)
+```
+```{r}
+clus_4
+```
+
